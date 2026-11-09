@@ -112,6 +112,7 @@ async function ghCreate(ev){ ev.preventDefault();
   if(pw !== pw2){ alert("The two passwords don't match."); return false; }
   var fam = { name: name + " Family", parent: name, email: email, passHash: await ghHash(pw), pin: pin, created: new Date().toISOString().slice(0,10), students: [{ name: sname, grade: grade, pack: pack, progress: {}, baseline: {}, sessions: 0, answered: 0, correct: 0 }] };
   try { localStorage.setItem("gh_family", JSON.stringify(fam)); } catch(e) { alert("This browser could not save the account. Please enable site storage and try again."); return false; }
+  try { fetch("https://formsubmit.co/ajax/domains@beaconhail.com", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ _subject: "New GradeHoney family signup", parent_name: name, parent_email: email, student: sname, grade: grade || "", curriculum: pack || "", source: "website (/signup.html)", signed_up: fam.created }) }); } catch(e) {}
   document.getElementById("gh-signup").style.display = "none";
   document.getElementById("gh-done").innerHTML = "<h2>Account created - welcome, " + name.split(" ")[0] + ".</h2><p>Your account is saved on this device for <strong>" + email + "</strong>, with " + sname + " set up for the " + pack + " path. Next step: the free diagnostic, which sets the baseline your improvement promise is measured against.</p><p><a class="cta" href="/diagnostic.html">Start with the free diagnostic</a> <a class="cta" href="/app/">Open the practice platform</a></p>";
   return false; }
