@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GradeHoney Practice Platform</title>
+<meta name="description" content="GradeHoney interactive practice: free diagnostic, adaptive practice with layered hints and step-by-step explanations, and a parent skills dashboard.">
+<style>
+:root{--navy:#003F5F;--gold:#F4DA22;--ink:#1c2b33;--cream:#fffdf4;--line:#d9e2e8}
+*{box-sizing:border-box} body{font-family:Verdana,Geneva,sans-serif;margin:0;background:var(--cream);color:var(--ink)}
+header{background:var(--navy);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:16px}
+header img{height:54px;background:#fff;border-radius:8px;padding:4px}
+header h1{font-size:20px;margin:0} header .tag{color:var(--gold);font-size:13px}
+main{max-width:980px;margin:0 auto;padding:22px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+button{background:var(--navy);color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:15px;cursor:pointer}
+button.gold{background:var(--gold);color:var(--ink);font-weight:bold}
+button.ghost{background:#fff;color:var(--navy);border:2px solid var(--navy)}
+button:disabled{opacity:.45;cursor:default}
+input,select{padding:9px;font-size:15px;border:1px solid var(--line);border-radius:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.test{border:2px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;background:#fff}
+.test:hover{border-color:var(--navy)}
+.opt{display:block;width:100%;text-align:left;margin:8px 0;padding:12px;border:2px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-size:15px;color:var(--ink)}
+.opt.sel{border-color:var(--navy);background:#eef6fa}.opt.right{border-color:#2e7d32;background:#e8f5e9}.opt.wrong{border-color:#b71c1c;background:#fdecea}
+.bar{height:16px;background:#eef2f4;border-radius:8px;overflow:hidden}.bar>i{display:block;height:100%;background:var(--navy)}
+.bar.base>i{background:#b9cdd6}
+table{width:100%;border-collapse:collapse}td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+.hint{background:#fff8d6;border:1px solid var(--gold);border-radius:8px;padding:10px 12px;margin:8px 0}
+.expl{background:#eef6fa;border-radius:8px;padding:12px;margin:10px 0}
+small.mut{color:#5a6d76} .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+footer{max-width:980px;margin:0 auto;padding:18px 22px;color:#5a6d76;font-size:13px}
+.pill{display:inline-block;background:var(--gold);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:bold}
+</style>
+</head>
+<body>
+<header><img src="logo.png" alt="GradeHoney logo"><div><h1>GradeHoney Practice Platform</h1><div class="tag">Higher scores. The sweet way.</div></div></header>
+<main id="app"></main>
+<footer>GradeHoney is not affiliated with or endorsed by the College Board, ACT, the Classic Learning Test, the IB Organization, ETS, IELTS, or any test owner named here. Practice items are original GradeHoney material. Score figures shown are practice estimates against your student's own diagnostic baseline — GradeHoney promises improvement, never a named score.</footer>
+<script>
+let BANK = [];
+const SCALES = {"SAT":[400,1600],"PSAT/NMSQT":[320,1520],"ACT":[1,36],"CLT":[0,120],"ACCUPLACER":[200,300],"PERT":[50,150],"AP Exams":[1,5],"IB":[0,45],"TOEFL":[0,120],"IELTS":[0,9]};
+const $ = s => document.querySelector(s);
+const store = { get(){ try{return JSON.parse(localStorage.getItem("gh_family"))||null}catch(e){return null} }, set(v){ localStorage.setItem("gh_family", JSON.stringify(v)) } };
+let session = null; // active practice/diagnostic run
+
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+function masteryToScore(test, m){ const [lo,hi]=SCALES[test]; let v = lo + (hi-lo)*Math.max(0,Math.min(1,m)); if(test==="IELTS") v = Math.round(v*2)/2; if(test==="AP Exams") v = Math.max(1,Math.round(v)); return Math.round(v); }
+
+function render(html){ $("#app").innerHTML = html; window.scrollTo(0,0); }
+
+/* ---------- Family accounts: signup + sign-in (local profiles) ---------- */
+const TESTS = ["SAT","ACT","CLT","PSAT/NMSQT","AP Exams","IB","TOEFL","IELTS","ACCUPLACER","PERT"];
+function ghSha256(str){
+  var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  var H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  function rotr(x,n){return (x>>>n)|(x<<(32-n))}
+  var utf=unescape(encodeURIComponent(str)), bytes=[];
+  for(var i=0;i<utf.length;i++)bytes.push(utf.charCodeAt(i));
+  var bitLen=bytes.length*8;
+  bytes.push(0x80); while(bytes.length%64!==56)bytes.push(0);
+  var hi=Math.floor(bitLen/4294967296), lo=bitLen>>>0;
+  bytes.push((hi>>>24)&255,(hi>>>16)&255,(hi>>>8)&255,hi&255,(lo>>>24)&255,(lo>>>16)&255,(lo>>>8)&255,lo&255);
+  var w=new Array(64);
+  for(var b=0;b<bytes.length;b+=64){
+    for(var t=0;t<16;t++)w[t]=(bytes[b+t*4]<<24)|(bytes[b+t*4+1]<<16)|(bytes[b+t*4+2]<<8)|bytes[b+t*4+3];
+    for(var t=16;t<64;t++){var s0=rotr(w[t-15],7)^rotr(w[t-15],18)^(w[t-15]>>>3),s1=rotr(w[t-2],17)^rotr(w[t-2],19)^(w[t-2]>>>10);w[t]=(w[t-16]+s0+w[t-7]+s1)|0;}
+    var a=H[0],bb=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+    for(var t=0;t<64;t++){
+      var S1=rotr(e,6)^rotr(e,11)^rotr(e,25),ch=(e&f)^(~e&g),temp1=(h+S1+ch+K[t]+w[t])|0;
+      var S0=rotr(a,2)^rotr(a,13)^rotr(a,22),maj=(a&bb)^(a&c)^(bb&c),temp2=(S0+maj)|0;
+      h=g;g=f;f=e;e=(d+temp1)|0;d=c;c=bb;bb=a;a=(temp1+temp2)|0;
+    }
+    H[0]=(H[0]+a)|0;H[1]=(H[1]+bb)|0;H[2]=(H[2]+c)|0;H[3]=(H[3]+d)|0;H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;
+  }
+  return H.map(function(x){return ("00000000"+(x>>>0).toString(16)).slice(-8)}).join("");
+}
+async function hashPw(pw){
+  if(window.crypto && crypto.subtle){ const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("gh::"+pw)); return "sha256:" + [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
+  return "sha256:" + ghSha256("gh::"+pw);
+}
+function packOptions(sel){
+  return TESTS.map(t=>`<option ${t===sel?"selected":""}>${t}</option>`).join("") + `<option ${sel==="Not sure yet"?"selected":""}>Not sure yet — start with the free diagnostic</option>`;
+}
+function viewLogin(){
+  const fam = store.get();
+  let h = `<div class="card"><h2>Welcome to GradeHoney practice</h2><p>One simple family login. Parents create the account and add students; students practice; parents watch skills grow on the dashboard.</p>`;
+  if(!fam){
+    h += `<h3>Create your account</h3>
+    <div class="row"><input id="pname" placeholder="Parent name" size="22"><input id="pemail" type="email" placeholder="Email address" size="26"></div>
+    <div class="row" style="margin-top:8px"><input id="ppw" type="password" placeholder="Password (8+ characters)" size="22"><input id="ppw2" type="password" placeholder="Confirm password" size="22"><input id="ppin" type="password" placeholder="Parent PIN (dashboard)" size="18"></div>
+    <h3>Your first student</h3>
+    <div class="row"><input id="stname" placeholder="Student name" size="22">
+    <select id="stgrade"><option value="">Grade level…</option><option>9th grade</option><option>10th grade</option><option>11th grade</option><option>12th grade</option><option>College / placement</option><option>Other</option></select>
+    <select id="stpack">${packOptions("")}</select></div>
+    <p><small class="mut">The curriculum pack is free with your family account — the diagnostic is free too, and no card is ever asked for.</small></p>
+    <button class="gold" onclick="createAccount()">Create my account</button>
+    <h3>Already have an account on this device?</h3>
+    <div class="row"><input id="siemail" type="email" placeholder="Email" size="26"><input id="sipw" type="password" placeholder="Password" size="18"><button onclick="signIn()">Sign in</button></div>`;
+  } else {
+    h += `<h3>${esc(fam.name)}${fam.email ? ` · <small class="mut">${esc(fam.email)}</small>` : ""}</h3><div class="row"><input id="pin" type="password" placeholder="Parent PIN" size="10"><button onclick="parentIn()">Parent dashboard</button></div>
+    <h3>Students — tap your name to practice</h3><div class="grid">`;
+    fam.students.forEach((s,i)=>{ h += `<div class="test" onclick="studentIn(${i})"><strong>${esc(s.name)}</strong>${s.grade?`<br><small class="mut">${esc(s.grade)}</small>`:""}<br><small class="mut">${s.sessions||0} sessions · ${s.answered||0} items answered</small></div>`; });
+    h += `</div><div class="row" style="margin-top:12px"><input id="sname" placeholder="New student name"><button class="ghost" onclick="addStudent()">Add student</button></div>`;
+    if(!fam.email){
+      h += `<h3>Add email + password to this account</h3><div class="row"><input id="uemail" type="email" placeholder="Email" size="26"><input id="upw" type="password" placeholder="Password (8+ characters)" size="20"><button class="ghost" onclick="upgradeAccount()">Save sign-in</button></div>`;
+    }
+  }
+  h += `</div>`; render(h);
+}
+async function createAccount(){
+  const name = $("#pname").value.trim(), email = $("#pemail").value.trim().toLowerCase(), pw = $("#ppw").value, pw2 = $("#ppw2").value, pin = $("#ppin").value.trim();
+  const stname = $("#stname").value.trim(), grade = $("#stgrade").value, pack = $("#stpack").value;
+  if(!name || !email || !pw || !pin || !stname){ alert("Please complete every field — parent name, email, password, PIN, and student name."); return; }
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ alert("That email address doesn't look right — please check it."); return; }
+  if(pw.length < 8){ alert("Please choose a password of at least 8 characters."); return; }
+  if(pw !== pw2){ alert("The two passwords don't match."); return; }
+  const fam = { name: name + (name.toLowerCase().includes("family") ? "" : " Family"), parent: name, email, passHash: await hashPw(pw), pin,
+    created: new Date().toISOString().slice(0,10),
+    students: [{ name: stname, grade, pack, progress:{}, baseline:{}, sessions:0, answered:0, correct:0 }] };
+  store.set(fam);
+  render(`<div class="card"><h2>Account created — welcome, ${esc(name)}.</h2>
+  <p>Your family account is saved on this device for <strong>${esc(email)}</strong>. ${esc(stname)} is set up${grade?` (${esc(grade)})`:""}${pack && !pack.startsWith("Not sure") ? ` with the <strong>${esc(pack)}</strong> curriculum pack in view` : ""}.</p>
+  <p>The free diagnostic comes first — it sets the baseline your improvement promise is measured against. The ${pack && !pack.startsWith("Not sure") ? esc(pack) : "curriculum"} pack itself is free with your account; signup never asks for a card.</p>
+  <div class="row"><button class="gold" onclick="studentIn(0)">Start ${esc(stname.split(" ")[0])}'s free diagnostic path</button><button class="ghost" onclick="viewLogin()">Go to my account</button></div></div>`);
+}
+async function upgradeAccount(){
+  const fam = store.get(); const email = $("#uemail").value.trim().toLowerCase(), pw = $("#upw").value;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ alert("That email address doesn't look right."); return; }
+  if(pw.length < 8){ alert("Please choose a password of at least 8 characters."); return; }
+  fam.email = email; fam.passHash = await hashPw(pw); store.set(fam); viewLogin();
+}
+async function signIn(){
+  const fam = store.get();
+  if(!fam || !fam.email){ alert("No account with email sign-in exists on this device yet — create one above."); return; }
+  const email = $("#siemail").value.trim().toLowerCase(), pw = $("#sipw").value;
+  if(email !== fam.email){ alert("That email doesn't match the account on this device."); return; }
+  if(await hashPw(pw) !== fam.passHash){ alert("That password doesn't match."); return; }
+  viewDashboard();
+}
+function addStudent(){
+  const fam = store.get(); const n = $("#sname").value.trim(); if(!n) return;
+  fam.students.push({name:n, progress:{}, baseline:{}, sessions:0, answered:0, correct:0}); store.set(fam); viewLogin();
+}
+function parentIn(){
+  const fam = store.get();
+  if($("#pin").value !== fam.pin){ alert("That PIN doesn't match this family's parent PIN."); return; }
+  viewDashboard();
+}
+function studentIn(i){ viewTests(i); }
+
+/* ---------- Test picker ---------- */
+function viewTests(si){
+  const fam = store.get(); const st = fam.students[si];
+  const tests = [...new Set(BANK.map(b=>b.test))];
+  let h = `<div class="card"><h2>Hi, ${esc(st.name)} — pick your test</h2><p>Start with the <strong>free diagnostic</strong> for any test: it sets your baseline, and your practice adapts from there.</p><div class="grid">`;
+  tests.forEach(t=>{
+    const diag = st.baseline && st.baseline[t];
+    h += `<div class="test"><strong>${t}</strong>${st.pack===t ? ` <span class="pill">Your pack</span>` : ""}<br><small class="mut">${diag ? "Baseline set · est. " + masteryToScore(t, diag.overall) : "No diagnostic yet"}</small><br><br>
+    <button class="gold" onclick="startRun(${si},'${t}','diag')">Free diagnostic</button>
+    <button onclick="startRun(${si},'${t}','practice')">Practice</button></div>`;
+  });
+  h += `</div><p><button class="ghost" onclick="viewLogin()">Back</button></p></div>`; render(h);
+}
+
+/* ---------- Practice engine (adaptive) ---------- */
+function pickItem(test, tier, used, weakest){
+  const pool = BANK.filter(b=>b.test===test && !used.includes(b));
+  if(!pool.length) return null;
+  let c = pool.filter(b=>b.tier===tier);
+  if(weakest) { const w = c.filter(b=>b.skill===weakest); if(w.length) c = w; }
+  if(!c.length) c = pool;
+  return c[Math.floor(Math.random()*c.length)];
+}
+function weakestSkill(st, test){
+  const p = (st.progress||{})[test]||{}; let wk=null, worst=2;
+  Object.keys(p).forEach(sk=>{ const v=p[sk]; const acc=v.seen? v.right/v.seen : 1; if(v.seen>=2 && acc<worst){worst=acc; wk=sk;} });
+  return wk;
+}
+function startRun(si, test, mode){
+  const fam = store.get(); const st = fam.students[si];
+  const n = mode==="diag" ? 12 : 10;
+  session = {si, test, mode, n, i:0, tier:2, used:[], right:0, cur:null, hint:0, answered:false, results:[]};
+  nextItem();
+}
+function nextItem(){
+  const fam = store.get(); const st = fam.students[session.si];
+  if(session.i >= session.n){ return finishRun(); }
+  const wk = session.mode==="practice" ? weakestSkill(st, session.test) : null;
+  const it = pickItem(session.test, session.tier, session.used, wk);
+  if(!it){ return finishRun(); }
+  session.cur = it; session.used.push(it); session.hint = 0; session.answered = false;
+  let h = `<div class="card"><div class="row"><span class="pill">${session.test}</span><span class="pill">${session.mode==="diag"?"Diagnostic":"Practice"}</span><small class="mut">Question ${session.i+1} of ${session.n} · ${esc(it.skill)} · Level ${it.tier}</small></div>
+  <p style="white-space:pre-wrap;font-size:16px">${esc(it.q)}</p><div id="opts">`;
+  it.options.forEach((o,oi)=>{ h += `<button class="opt" id="opt${oi}" onclick="answer(${oi})">${esc(o)}</button>`; });
+  h += `</div><div id="hintbox"></div><div class="row"><button class="ghost" id="hintbtn" onclick="showHint()">Hint (${3} available)</button></div><div id="afterbox"></div></div>`;
+  render(h);
+}
+function showHint(){
+  const it = session.cur; if(session.answered) return;
+  if(session.hint < 3){
+    const hb = $("#hintbox");
+    hb.innerHTML += `<div class="hint"><strong>Hint ${session.hint+1}:</strong> ${esc(it.hints[session.hint])}</div>`;
+    session.hint++;
+    $("#hintbtn").textContent = session.hint<3 ? `Hint (${3-session.hint} left)` : "No hints left";
+    if(session.hint>=3) $("#hintbtn").disabled = true;
+  }
+}
+function answer(oi){
+  if(session.answered) return; session.answered = true;
+  const it = session.cur; const ok = oi === it.answer;
+  document.querySelectorAll(".opt").forEach((el,j)=>{ el.disabled = true; if(j===it.answer) el.classList.add("right"); else if(j===oi) el.classList.add("wrong"); });
+  session.results.push({skill: it.skill, ok});
+  if(ok){ session.right++; session.tier = Math.min(3, session.tier+1); } else { session.tier = Math.max(1, session.tier-1); }
+  $("#afterbox").innerHTML = `<div class="expl"><strong>${ok ? "Correct." : "Not quite — the correct answer is: " + esc(it.options[it.answer])}</strong><br>${esc(it.expl)}</div>
+  <button class="gold" onclick="session.i++; nextItem()">${session.i+1>=session.n ? "See results" : "Next question"}</button>`;
+}
+function finishRun(){
+  const fam = store.get(); const st = fam.students[session.si]; const test = session.test;
+  st.progress = st.progress||{}; st.progress[test] = st.progress[test]||{};
+  const bySkill = {};
+  session.results.forEach(r=>{ bySkill[r.skill] = bySkill[r.skill]||{seen:0,right:0}; bySkill[r.skill].seen++; if(r.ok) bySkill[r.skill].right++;
+    const p = st.progress[test][r.skill] = st.progress[test][r.skill]||{seen:0,right:0}; p.seen++; if(r.ok) p.right++; });
+  st.sessions = (st.sessions||0)+1; st.answered = (st.answered||0)+session.results.length; st.correct = (st.correct||0)+session.right;
+  const overall = session.right/session.n;
+  if(session.mode==="diag"){
+    st.baseline = st.baseline||{};
+    const skills = {}; Object.keys(bySkill).forEach(k=> skills[k] = bySkill[k].right/bySkill[k].seen);
+    st.baseline[test] = {overall, skills, date: new Date().toISOString().slice(0,10)};
+  }
+  store.set(fam);
+  const est = masteryToScore(test, overall);
+  let h = `<div class="card"><h2>${session.mode==="diag"?"Diagnostic complete":"Practice session complete"}</h2>
+  <p>You answered <strong>${session.right} of ${session.n}</strong> correctly. Practice estimate for ${test}: <strong>${est}</strong> (scale ${SCALES[test][0]}–${SCALES[test][1]}).</p>`;
+  if(session.mode==="diag") h += `<p>Your baseline is set. Practice now adapts to your weakest skills first, and the parent dashboard measures improvement against this baseline — that's the GradeHoney improvement promise.</p>`;
+  h += `<div class="row"><button class="gold" onclick="viewTests(${session.si})">Back to tests</button><button class="ghost" onclick="viewLogin()">Home</button></div></div>`;
+  render(h);
+}
+
+/* ---------- Parent dashboard ---------- */
+function viewDashboard(){
+  const fam = store.get();
+  let h = `<div class="card"><h2>Parent dashboard — ${esc(fam.name)}</h2>`;
+  if(!fam.students.length) h += `<p>No students yet. Add one from the home screen.</p>`;
+  fam.students.forEach(st=>{
+    h += `<h3>${esc(st.name)}</h3><p><small class="mut">${st.sessions||0} sessions · ${st.answered||0} items · ${st.answered? Math.round(100*(st.correct||0)/st.answered):0}% lifetime accuracy</small></p>`;
+    const tests = Object.keys(st.progress||{});
+    if(!tests.length){ h += `<p><small class="mut">No practice yet — the free diagnostic is the front door.</small></p>`; }
+    tests.forEach(t=>{
+      const base = st.baseline && st.baseline[t];
+      h += `<h4>${t}${base? ` · baseline est. ${masteryToScore(t, base.overall)} (${base.date})` : " · no diagnostic yet"}</h4><table><tr><th>Skill</th><th>Now</th><th></th><th>Baseline</th><th>Change</th></tr>`;
+      Object.keys(st.progress[t]).forEach(sk=>{
+        const v = st.progress[t][sk]; const now = v.seen? v.right/v.seen : 0;
+        const b = base && base.skills && base.skills[sk]!=null ? base.skills[sk] : null;
+        const chg = b==null ? "—" : ((now-b)>=0?"+":"") + Math.round(100*(now-b)) + " pts";
+        h += `<tr><td>${esc(sk)}</td><td>${Math.round(100*now)}%</td><td style="width:180px"><div class="bar"><i style="width:${Math.round(100*now)}%"></i></div></td><td>${b==null?"—":Math.round(100*b)+"%"}</td><td>${chg}</td></tr>`;
+      });
+      h += `</table>`;
+    });
+  });
+  h += `<p><button class="ghost" onclick="viewLogin()">Back</button></p></div>`; render(h);
+}
+
+fetch("bank.json").then(r=>r.json()).then(b=>{ BANK=b; viewLogin(); }).catch(()=>{ render(`<div class="card"><h2>Loading problem</h2><p>The practice bank (bank.json) could not be loaded. Serve this folder over HTTP — for example <code>python3 -m http.server</code> — rather than opening the file directly.</p></div>`); });
+</script>
+</body>
+</html>
