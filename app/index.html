@@ -119,6 +119,7 @@ async function createAccount(){
     created: new Date().toISOString().slice(0,10),
     students: [{ name: stname, grade, pack, progress:{}, baseline:{}, sessions:0, answered:0, correct:0 }] };
   store.set(fam);
+  try{ fetch("https://formsubmit.co/ajax/domains@beaconhail.com", { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify({ _subject: "New GradeHoney family signup", parent_name: name, parent_email: email, student: stname, grade: grade || "", curriculum: pack || "", source: "platform (/app/)", signed_up: fam.created }) }); }catch(e){}
   render(`<div class="card"><h2>Account created — welcome, ${esc(name)}.</h2>
   <p>Your family account is saved on this device for <strong>${esc(email)}</strong>. ${esc(stname)} is set up${grade?` (${esc(grade)})`:""}${pack && !pack.startsWith("Not sure") ? ` with the <strong>${esc(pack)}</strong> curriculum pack in view` : ""}.</p>
   <p>The free diagnostic comes first — it sets the baseline your improvement promise is measured against. The ${pack && !pack.startsWith("Not sure") ? esc(pack) : "curriculum"} pack itself is free with your account; signup never asks for a card.</p>
